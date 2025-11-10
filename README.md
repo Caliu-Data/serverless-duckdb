@@ -1,6 +1,6 @@
 # Serverless DuckDB Medallion ETL in Azure
 
-This repository contains `ducksrvls`, a Python-based ETL system that implements a medallion (Bronze → Silver → Gold) architecture on top of DuckDB, Azure Data Lake Storage, Soda, and Splink. It is designed to be configuration-driven, easy to operate, and cloud-friendly.
+This repository contains `ducksrvls`, a Python-based ETL system that implements a medallion architecture on top of DuckDB, Azure Data Lake Storage using Azure Functions. It is designed to be configuration-driven and easy to operate.
 
 ## Key Features
 
@@ -147,10 +147,7 @@ Once scheduled execution is healthy, downstream systems can consume Gold-layer o
 
 ## Roadmap Ideas
 
-- Plug-in scheduler support (e.g., Azure Container Apps, GitHub Actions).
-- Richer monitoring with Prometheus exporters or Azure Monitor integration.
-- Additional source connectors (S3, Snowflake, Synapse).
-- Delta or Iceberg outputs for Gold layer.
+- Multicloud
 
 ---
 
