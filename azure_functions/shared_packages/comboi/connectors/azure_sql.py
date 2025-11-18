@@ -7,7 +7,7 @@ from typing import Dict, Optional
 import duckdb
 from rich.console import Console
 
-from ducksrvls.checkpoint import CheckpointStore
+from comboi.checkpoint import CheckpointStore
 
 console = Console()
 
@@ -45,6 +45,7 @@ class AzureSQLConnector:
             con.execute(f"COPY ({query}) TO '{destination.as_posix()}' (FORMAT PARQUET)")
 
             if checkpoint_key and incremental_column:
+                # capture max value for incremental load
                 max_query = f"SELECT MAX({incremental_column}) AS chk FROM ({table_cfg['query']}) src"
                 if last_value:
                     max_query += f" WHERE {incremental_column} > '{last_value}'"

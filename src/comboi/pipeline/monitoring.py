@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict
+
+import os
 
 from azure.monitor.opentelemetry.exporter import AzureMonitorLogExporter, AzureMonitorMetricExporter
 from opentelemetry import metrics, trace
@@ -25,7 +26,7 @@ class Monitor:
     log_path: Path
     metrics_path: Path
     azure_connection_string: str | None = None
-    service_name: str = "ducksrvls"
+    service_name: str = "comboi"
     _metrics: Dict[str, Any] = field(default_factory=dict)
     _observables: Dict[str, Any] = field(default_factory=dict, init=False)
 
@@ -48,7 +49,7 @@ class Monitor:
         with self.metrics_path.open("w", encoding="utf-8") as fh:
             json.dump(self._metrics, fh, indent=2)
         if self._meter:
-            observable_name = f"ducksrvls.{key}"
+            observable_name = f"comboi.{key}"
             if observable_name not in self._observables:
                 gauge = self._meter.create_observable_gauge(
                     observable_name,

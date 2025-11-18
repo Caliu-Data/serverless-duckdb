@@ -7,14 +7,14 @@ from typing import Dict, Optional
 import duckdb
 from rich.console import Console
 
-from ducksrvls.checkpoint import CheckpointStore
+from comboi.checkpoint import CheckpointStore
 
 console = Console()
 
 
 @dataclass
-class PostgresConnector:
-    conn_str: str
+class AzureSQLConnector:
+    dsn: str
     checkpoint_store: CheckpointStore
 
     def export_table(
@@ -36,15 +36,16 @@ class PostgresConnector:
                 WHERE {incremental_column} > '{last_value}'
                 """
 
-        console.log(f"[bold blue]Executing Postgres query for {table_cfg['name']}[/]")
+        console.log(f"[bold blue]Executing Azure SQL query for {table_cfg['name']}[/]")
         con = duckdb.connect()
         try:
-            con.execute("INSTALL postgres_scanner;")
-            con.execute("LOAD postgres_scanner;")
-            con.execute(f"ATTACH '{self.conn_str}' (TYPE POSTGRES, READ_ONLY=TRUE)")
+            con.execute("INSTALL odbc;")
+            con.execute("LOAD odbc;")
+            con.execute(f"ATTACH '{self.dsn}' (TYPE ODBC, READ_ONLY=TRUE)")
             con.execute(f"COPY ({query}) TO '{destination.as_posix()}' (FORMAT PARQUET)")
 
             if checkpoint_key and incremental_column:
+                # capture max value for incremental load
                 max_query = f"SELECT MAX({incremental_column}) AS chk FROM ({table_cfg['query']}) src"
                 if last_value:
                     max_query += f" WHERE {incremental_column} > '{last_value}'"

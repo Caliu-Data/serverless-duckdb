@@ -5,8 +5,8 @@
       "name": "msg",
       "type": "queueTrigger",
       "direction": "in",
-      "queueName": "%DUCKSRVLS_QUEUE_NAME%",
-      "connection": "DUCKSRVLS_QUEUE_CONNECTION"
+      "queueName": "%COMBOI_QUEUE_NAME%",
+      "connection": "COMBOI_QUEUE_CONNECTION"
     }
   ]
 }

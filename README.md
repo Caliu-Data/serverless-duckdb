@@ -1,5 +1,7 @@
 # Comboi - Serverless DuckDB ELT System in Azure
 
+[![Repository](https://img.shields.io/badge/GitHub-Caliu--Data%2Fcomboi-blue)](https://github.com/Caliu-Data/comboi)
+
 This repository contains `comboi`, a Python-based ELT system that implements a medallion architecture on top of DuckDB, Azure Data Lake Storage using Azure Functions. It is designed to be configuration-driven and easy to operate.
 
 ## Key Features
@@ -17,7 +19,7 @@ This repository contains `comboi`, a Python-based ELT system that implements a m
 .
 ├── configs/               # Pipeline configuration files
 ├── transformations/       # [Bruin](https://github.com/bruin-data/bruin) transformation and quality check scripts
-├── src/ducksrvls/         # Application source code (shared by CLI & Azure Functions)
+├── src/comboi/         # Application source code (shared by CLI & Azure Functions)
 │   ├── connectors/        # Source system connectors (Azure SQL, PostgreSQL)
 │   ├── io/                # ADLS client helpers
 │   ├── pipeline/          # Driver, queue, monitoring, and stage orchestration
@@ -81,7 +83,7 @@ The configuration is split into two files:
    - Returns a tuple `(passed: bool, message: str)` indicating if checks passed
    - Performs data quality validations using SQL queries
 5. Update `configs/transformations.yml` to list the [Bruin](https://github.com/bruin-data/bruin) transformations to run for each stage, along with quality check names and Splink settings for Silver transformations.
-6. Any time you modify code inside `src/ducksrvls`, rerun `python tools/embed_ducksrvls.py` so that the vendored copy under `azure_functions/shared_packages/` stays in sync for Function deployments.
+6. Any time you modify code inside `src/comboi`, rerun `python tools/embed_comboi.py` so that the vendored copy under `azure_functions/shared_packages/` stays in sync for Function deployments.
 7. Optionally tailor `terraform/variables.tf` defaults (timer schedule, start stage, config path, region).
 8. (Optional) Set up a local Python environment `pip install -e .` if you need to lint or unit-test custom logic.
 
@@ -97,14 +99,14 @@ The Terraform stack provisions:
 
 - Resource group, Application Insights, Log Analytics workspace.
 - Two storage accounts (one for Functions, one hierarchical namespace account for ADLS data + queue).
-- Bronze/Silver/Gold Data Lake containers and the `ducksrvls-tasks` Azure Storage Queue.
+- Bronze/Silver/Gold Data Lake containers and the `comboi-tasks` Azure Storage Queue.
 - Key Vault with secrets referencing the queue connection string and Application Insights connection string.
 - Linux Consumption Function App, system-assigned managed identity, and required app settings.
 
 After provisioning, publish the Azure Functions code (e.g. from the repo root):
 
 ```bash
-python tools/embed_ducksrvls.py  # copies src/ducksrvls into azure_functions/shared_packages
+python tools/embed_comboi.py  # copies src/comboi into azure_functions/shared_packages
 cd azure_functions
 # Ensure transformations directory is accessible (copy transformations/ directory or reference from parent)
 func azure functionapp publish <function_app_name>
@@ -118,7 +120,7 @@ Terraform outputs the Function App name (`function_app_name`) and supporting res
 
 ### 3. Check the Scheduled Execution in Azure Monitor
 
-- Verify the timer trigger (`driver` Function) runs according to `DUCKSRVLS_TIMER_SCHEDULE` by opening the Function App → Monitor blade.
+- Verify the timer trigger (`driver` Function) runs according to `COMBOI_TIMER_SCHEDULE` by opening the Function App → Monitor blade.
 - Inspect logs and traces via Application Insights (Log Analytics workspace). Useful Kusto queries:
 
 ```kusto
@@ -162,9 +164,9 @@ Once scheduled execution is healthy, downstream systems can consume Gold-layer o
 - **[Bruin](https://github.com/bruin-data/bruin) transformation errors**: Verify transformation scripts are in `transformations/` directory, check that each script defines a `transform(con, inputs)` function, and ensure transformation names in `configs/transformations.yml` match the Python file names (without `.py` extension).
 - **[Bruin](https://github.com/bruin-data/bruin) quality check failures**: Verify quality check scripts are in `transformations/quality/` directory, check that each script defines a `check(con, dataset_name)` function that returns `(bool, str)`, and ensure quality check names in `configs/transformations.yml` match the Python file names (without `.py` extension). Review error messages in logs to identify which specific checks failed.
 - **ADLS authentication issues**: Provide a valid credential in the configuration or export Azure identity context (e.g., `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`) before running the CLI.
-- **Key Vault access issues**: Ensure the identity running `ducksrvls` has `get` and `list` secret permissions on the referenced Key Vault and that the secret names in the configuration exist.
+- **Key Vault access issues**: Ensure the identity running `comboi` has `get` and `list` secret permissions on the referenced Key Vault and that the secret names in the configuration exist.
 - **Azure Storage Queue problems**: Confirm the queue exists (it is created automatically if missing), the connection string is valid, and the identity has `send`, `receive`, and `delete` rights. Keep `host.json` queue batch size at one to prevent out-of-order execution.
-- **Azure Functions binding errors**: Validate `DUCKSRVLS_QUEUE_NAME`, `DUCKSRVLS_QUEUE_CONNECTION`, and `DUCKSRVLS_TIMER_SCHEDULE` app settings and ensure they align with the YAML configuration.
+- **Azure Functions binding errors**: Validate `COMBOI_QUEUE_NAME`, `COMBOI_QUEUE_CONNECTION`, and `COMBOI_TIMER_SCHEDULE` app settings and ensure they align with the YAML configuration.
 - **Azure Monitor export issues**: Check that `AZURE_MONITOR_CONNECTION_STRING` or `monitoring.azure_connection_string` is present, the identity has `monitoring MetricsPublisher` permissions, and network rules allow ingestion.
 
 ## Roadmap Ideas

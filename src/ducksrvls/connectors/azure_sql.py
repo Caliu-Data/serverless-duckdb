@@ -7,7 +7,7 @@ from typing import Dict, Optional
 import duckdb
 from rich.console import Console
 
-from ducksrvls.checkpoint import CheckpointStore
+from comboi.checkpoint import CheckpointStore
 
 console = Console()
 

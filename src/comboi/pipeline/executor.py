@@ -5,7 +5,7 @@ from typing import Callable, Dict, Iterable
 
 from rich.console import Console
 
-from ducksrvls.pipeline.monitoring import Monitor
+from comboi.pipeline.monitoring import Monitor
 
 console = Console()
 
@@ -35,4 +35,3 @@ class Executor:
                     progress.remove_task(stage_task)
             progress.remove_task(overall)
         return results
-

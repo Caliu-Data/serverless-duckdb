@@ -13,15 +13,15 @@ _SHARED = _FUNCTION_ROOT / "shared_packages"
 if _SHARED.exists():
     sys.path.insert(0, str(_SHARED))
 
-from ducksrvls.pipeline.queue import AzureTaskQueue
-from ducksrvls.runner import create_driver
+from comboi.pipeline.queue import AzureTaskQueue
+from comboi.runner import create_driver
 
 console = Console()
 
 
 def main(msg: func.QueueMessage) -> None:
     payload = _parse_payload(msg)
-    config_path = Path(payload.get("config_path", os.getenv("DUCKSRVLS_CONFIG", "configs/default.yml")))
+    config_path = Path(payload.get("config_path", os.getenv("COMBOI_CONFIG", "configs/default.yml")))
     stage = payload["stage"]
     remaining: List[str] = payload.get("remaining", [])
 

@@ -1,13 +1,13 @@
 ## Terraform Stack
 
-This module provisions the Azure footprint required for the `ducksrvls` medallion ETL pipeline.
+This module provisions the Azure footprint required for the `comboi` medallion ETL pipeline.
 
 ### Resources
 
 - Resource group, Log Analytics workspace, Application Insights
 - Storage account for Azure Functions (non-HNS)
 - Storage account with hierarchical namespace for ADLS bronze/silver/gold layers
-- Azure Storage Queue (`ducksrvls-tasks`)
+- Azure Storage Queue (`comboi-tasks`)
 - Key Vault with secrets:
   - `queue-connection-string` (Function storage account connection string)
   - `application-insights-connection`

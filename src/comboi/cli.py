@@ -6,12 +6,13 @@ from typing import Optional
 import typer
 from rich import print
 
-from ducksrvls.runner import create_driver
+from comboi.pipeline.driver import Driver
+from comboi.runner import create_driver
 
 app = typer.Typer(help="Serverless DuckDB Medallion ETL executor")
 
 
-def _load_driver(config_path: Path):
+def _load_driver(config_path: Path) -> Driver:
     return create_driver(config_path)
 
 

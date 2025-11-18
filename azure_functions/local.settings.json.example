@@ -3,11 +3,11 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "python",
-    "DUCKSRVLS_TIMER_SCHEDULE": "0 0 * * * *",
-    "DUCKSRVLS_QUEUE_NAME": "ducksrvls-tasks",
-    "DUCKSRVLS_QUEUE_CONNECTION": "DefaultEndpointsProtocol=https;AccountName=...;",
-    "DUCKSRVLS_CONFIG": "configs/default.yml",
-    "DUCKSRVLS_START_STAGE": "all"
+    "COMBOI_TIMER_SCHEDULE": "0 0 * * * *",
+    "COMBOI_QUEUE_NAME": "comboi-tasks",
+    "COMBOI_QUEUE_CONNECTION": "DefaultEndpointsProtocol=https;AccountName=...;",
+    "COMBOI_CONFIG": "configs/default.yml",
+    "COMBOI_START_STAGE": "all"
   }
 }
 

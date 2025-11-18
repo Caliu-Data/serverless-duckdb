@@ -6,7 +6,7 @@ locals {
   app_insights_name         = "${var.prefix}-appi-${var.environment}"
   service_plan_name         = "${var.prefix}-plan-${var.environment}"
   function_app_name         = "${var.prefix}-func-${var.environment}"
-  queue_name                = "ducksrvls-tasks"
+  queue_name                = "comboi-tasks"
   bronze_container_name     = "bronze"
   silver_container_name     = "silver"
   gold_container_name       = "gold"
@@ -90,11 +90,11 @@ resource "azurerm_linux_function_app" "main" {
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME          = "python"
     AzureWebJobsStorage               = azurerm_storage_account.function.primary_connection_string
-    DUCKSRVLS_TIMER_SCHEDULE          = var.timer_schedule
-    DUCKSRVLS_QUEUE_NAME              = local.queue_name
-    DUCKSRVLS_QUEUE_CONNECTION        = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.queue_connection.value_uri})"
-    DUCKSRVLS_CONFIG                  = var.config_path
-    DUCKSRVLS_START_STAGE             = var.start_stage
+    COMBOI_TIMER_SCHEDULE          = var.timer_schedule
+    COMBOI_QUEUE_NAME              = local.queue_name
+    COMBOI_QUEUE_CONNECTION        = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.queue_connection.value_uri})"
+    COMBOI_CONFIG                  = var.config_path
+    COMBOI_START_STAGE             = var.start_stage
     AZURE_MONITOR_CONNECTION_STRING   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.appinsights_connection.value_uri})"
     DATA_LAKE_ACCOUNT_NAME            = azurerm_storage_account.datalake.name
     DATA_LAKE_URL                     = "https://${azurerm_storage_account.datalake.name}.dfs.core.windows.net"

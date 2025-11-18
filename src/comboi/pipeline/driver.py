@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from ducksrvls.checkpoint import CheckpointStore
-from ducksrvls.config import PipelineConfig
-from ducksrvls.io.adls import ADLSClient
-from ducksrvls.pipeline.executor import Executor
-from ducksrvls.pipeline.monitoring import Monitor
-from ducksrvls.pipeline.stages.bronze import BronzeStage
-from ducksrvls.pipeline.stages.gold import GoldStage
-from ducksrvls.pipeline.stages.silver import SilverStage
+from comboi.checkpoint import CheckpointStore
+from comboi.config import PipelineConfig
+from comboi.io.adls import ADLSClient
+from comboi.pipeline.executor import Executor
+from comboi.pipeline.monitoring import Monitor
+from comboi.pipeline.stages.bronze import BronzeStage
+from comboi.pipeline.stages.gold import GoldStage
+from comboi.pipeline.stages.silver import SilverStage
 
 
 class Driver:
@@ -34,6 +34,12 @@ class Driver:
             data_lake=ADLSClient(**bronze_conf["data_lake"]),
             local_landing=Path(bronze_conf["local_path"]),
         )
+        # Set base paths for dbt variables
+        bronze_base = str(Path(bronze_conf["local_path"]).resolve())
+        silver_base = str(Path(silver_conf["local_path"]).resolve())
+        silver_conf["bronze_base_path"] = bronze_base
+        gold_conf["silver_base_path"] = silver_base
+        
         self.silver_stage = SilverStage(
             data_lake=ADLSClient(**silver_conf["data_lake"]),
             local_silver=Path(silver_conf["local_path"]),

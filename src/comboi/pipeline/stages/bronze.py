@@ -6,9 +6,9 @@ from typing import Dict, List
 
 from rich.console import Console
 
-from ducksrvls.checkpoint import CheckpointStore
-from ducksrvls.connectors import AzureSQLConnector, PostgresConnector
-from ducksrvls.io.adls import ADLSClient
+from comboi.checkpoint import CheckpointStore
+from comboi.connectors import AzureSQLConnector, PostgresConnector
+from comboi.io.adls import ADLSClient
 
 console = Console()
 

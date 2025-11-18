@@ -12,15 +12,15 @@ _SHARED = _FUNCTION_ROOT / "shared_packages"
 if _SHARED.exists():
     sys.path.insert(0, str(_SHARED))
 
-from ducksrvls.pipeline.queue import AzureTaskQueue
-from ducksrvls.runner import create_driver
+from comboi.pipeline.queue import AzureTaskQueue
+from comboi.runner import create_driver
 
 console = Console()
 
 
 def main(mytimer: func.TimerRequest) -> None:
-    config_path = Path(os.getenv("DUCKSRVLS_CONFIG", "configs/default.yml"))
-    selected_stage = os.getenv("DUCKSRVLS_START_STAGE", "all")
+    config_path = Path(os.getenv("COMBOI_CONFIG", "configs/default.yml"))
+    selected_stage = os.getenv("COMBOI_START_STAGE", "all")
 
     driver = create_driver(config_path)
     stages = driver.execution_order(selected_stage)

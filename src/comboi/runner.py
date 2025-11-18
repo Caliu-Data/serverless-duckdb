@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from ducksrvls.checkpoint import CheckpointStore
-from ducksrvls.config import load_config
-from ducksrvls.pipeline.driver import Driver
+from comboi.checkpoint import CheckpointStore
+from comboi.config import load_config
+from comboi.pipeline.driver import Driver
 
 
-def create_driver(config_path: Path) -> Driver:
+def create_driver(config_path: Path, transformations_path: Path | None = None) -> Driver:
     resolved_config = _resolve_path(config_path)
-    config = load_config(resolved_config)
+    # Try to find transformations.yml in the same directory as the config
+    if transformations_path is None:
+        transformations_candidate = resolved_config.parent / "transformations.yml"
+        if transformations_candidate.exists():
+            transformations_path = transformations_candidate
+    config = load_config(resolved_config, transformations_path)
     _normalize_paths(config, resolved_config.parent)
     checkpoint_path = Path(config.stages.bronze["checkpoint_path"])
     checkpoint_store = CheckpointStore(_resolve_relative(checkpoint_path, resolved_config.parent))
@@ -37,6 +43,7 @@ def _normalize_paths(config, base: Path) -> None:
     config.monitoring.metrics_path = _resolve_relative(Path(config.monitoring.metrics_path), base)
 
     if config.monitoring.azure_connection_string:
+        # Allow Key Vault placeholders; no path resolution required
         pass
 
     bronze = config.stages.bronze

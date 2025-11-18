@@ -3,7 +3,7 @@ key_vault:
 
 queue:
   connection_string: "{{keyvault:queue-connection-string}}"
-  queue_name: "ducksrvls-tasks"
+  queue_name: "comboi-tasks"
   visibility_timeout: 300
 
 sources:

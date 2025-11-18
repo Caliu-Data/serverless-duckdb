@@ -6,6 +6,7 @@ from typing import Optional
 import typer
 from rich import print
 
+from comboi.pipeline.driver import Driver
 from comboi.runner import create_driver
 
 app = typer.Typer(help="Serverless DuckDB Medallion ETL executor")
