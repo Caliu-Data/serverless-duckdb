@@ -177,4 +177,4 @@ Once scheduled execution is healthy, downstream systems can consume Gold-layer o
 ---
 
 Happy querying with DuckDB! Contributions and customizations are welcome.
-
+Made in Berlin
