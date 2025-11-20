@@ -23,7 +23,6 @@ class Driver:
         self.monitor = Monitor(
             log_path=config.monitoring.log_path,
             metrics_path=config.monitoring.metrics_path,
-            azure_connection_string=config.monitoring.azure_connection_string,
         )
         bronze_conf = config.stages.bronze
         silver_conf = config.stages.silver

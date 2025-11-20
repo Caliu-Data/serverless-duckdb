@@ -1,0 +1,71 @@
+version: "1.0.0"
+dataset: "orders_clean"
+stage: "silver"
+owner: "data-engineering-team"
+description: "Cleaned orders dataset with validated business rules"
+
+schema:
+  columns:
+    - name: order_id
+      type: VARCHAR
+      nullable: false
+      description: "Unique order identifier"
+      constraints:
+        - unique: true
+        - not_null: true
+    - name: customer_id
+      type: VARCHAR
+      nullable: false
+      description: "Customer identifier"
+      constraints:
+        - not_null: true
+    - name: order_date
+      type: DATE
+      nullable: false
+      description: "Date when order was placed"
+      constraints:
+        - not_null: true
+    - name: order_total
+      type: DECIMAL
+      nullable: false
+      description: "Total order amount"
+      constraints:
+        - not_null: true
+        - min_value: 0.01
+    - name: status
+      type: VARCHAR
+      nullable: false
+      description: "Order status"
+      constraints:
+        - allowed_values: ["pending", "completed", "cancelled", "shipped"]
+
+quality_rules:
+  - name: "no_duplicate_order_ids"
+    type: "uniqueness"
+    column: "order_id"
+    severity: "error"
+  - name: "positive_order_totals"
+    type: "custom_sql"
+    query: "SELECT COUNT(*) FROM {dataset} WHERE order_total <= 0"
+    expected: 0
+    severity: "error"
+  - name: "row_count_threshold"
+    type: "volume"
+    min_rows: 1
+    severity: "error"
+  - name: "no_null_order_ids"
+    type: "not_null"
+    column: "order_id"
+    severity: "error"
+
+sla:
+  freshness:
+    max_age_hours: 24
+    schedule: "daily"
+  completeness:
+    min_row_count: 1
+
+evolution:
+  backward_compatible: true
+  breaking_changes_allowed: false
+

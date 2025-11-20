@@ -4,13 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
-from rich.console import Console
-
 from comboi.checkpoint import CheckpointStore
 from comboi.connectors import AzureSQLConnector, PostgresConnector
 from comboi.io.adls import ADLSClient
+from comboi.logging import get_logger
 
-console = Console()
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -39,7 +38,7 @@ class BronzeStage:
                 )
                 remote_uri = self.data_lake.upload(exported, remote_path)
                 outputs.append(remote_uri)
-        console.log(f"[bold green]Bronze stage produced {len(outputs)} parquet files[/]")
+        logger.info("Bronze stage completed", parquet_files=len(outputs))
         return outputs
 
     def _build_connector(self, src: Dict):

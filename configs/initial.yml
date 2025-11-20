@@ -46,6 +46,7 @@ stages:
       credential: "{{keyvault:adls-storage-key}}"
     remote_path_template: "{stage}/{source}/{table}.parquet"
     transformations_path: "transformations"
+    contracts_path: "contracts"
     splink:
       enabled: true
   gold:
@@ -60,5 +61,4 @@ stages:
 monitoring:
   log_path: "logs/pipeline.log"
   metrics_path: "logs/metrics.json"
-  azure_connection_string: "{{keyvault:application-insights-connection}}"
 

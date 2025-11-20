@@ -3,12 +3,13 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import duckdb
-from rich.console import Console
 
-console = Console()
+from comboi.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class QualityCheckResult:
@@ -23,8 +24,9 @@ class QualityCheckResult:
 
 
 class BruinQualityRunner:
-    def __init__(self, transformations_path: Path):
+    def __init__(self, transformations_path: Path, contracts_path: Optional[Path] = None):
         self.transformations_path = transformations_path
+        self.contracts_path = contracts_path
 
     def run_quality_checks(
         self,
@@ -36,7 +38,7 @@ class BruinQualityRunner:
         if not quality_check_names:
             return
 
-        console.log(f"[cyan]Running bruin quality checks for {dataset_name}[/]")
+        logger.info("Running bruin quality checks", dataset=dataset_name)
 
         # Create DuckDB connection for quality checks
         con = duckdb.connect()
@@ -49,23 +51,91 @@ class BruinQualityRunner:
             all_results: List[QualityCheckResult] = []
 
             for check_name in quality_check_names:
-                result = self._run_single_check(check_name, con, dataset_name)
-                all_results.append(result)
+                # Check if this is a contract reference
+                if check_name.startswith("contract:"):
+                    contract_name = check_name.replace("contract:", "").strip()
+                    result = self._run_contract_check(contract_name, con, dataset_name, data_path)
+                    all_results.append(result)
+                else:
+                    # Run traditional Bruin quality check
+                    result = self._run_single_check(check_name, con, dataset_name)
+                    all_results.append(result)
 
             # Report results
             failed_checks = [r for r in all_results if not r.passed]
             if failed_checks:
-                console.log("[red]Quality check failures:[/]")
-                for result in failed_checks:
-                    console.log(f"[red]  {result}[/]")
+                logger.error(
+                    "Quality check failures",
+                    dataset=dataset_name,
+                    failed_count=len(failed_checks),
+                    total_count=len(all_results),
+                    failures=[str(r) for r in failed_checks],
+                )
                 raise RuntimeError(
                     f"Quality checks failed for {dataset_name}: {len(failed_checks)} of {len(all_results)} checks failed"
                 )
 
-            console.log(f"[green]All quality checks passed for {dataset_name}[/]")
+            logger.info("All quality checks passed", dataset=dataset_name, total_checks=len(all_results))
 
         finally:
             con.close()
+
+    def _run_contract_check(
+        self,
+        contract_name: str,
+        con: duckdb.DuckDBPyConnection,
+        dataset_name: str,
+        data_path: Path,
+    ) -> QualityCheckResult:
+        """Run quality checks from a data contract."""
+        if not self.contracts_path:
+            return QualityCheckResult(
+                "contract:" + contract_name,
+                False,
+                "Contracts path not configured",
+            )
+
+        try:
+            from comboi.contracts import ContractValidator
+
+            # Remove .yml extension if present
+            if contract_name.endswith(".yml"):
+                contract_name = contract_name[:-4]
+
+            contract_validator = ContractValidator(contracts_path=self.contracts_path)
+            
+            # Validate the contract (this includes schema, quality rules, and SLA)
+            result = contract_validator.validate(
+                contract_name=contract_name,
+                data_path=data_path,
+                dataset_name=dataset_name,
+                validate_sla=True,
+            )
+
+            # Convert contract validation result to QualityCheckResult
+            if result.passed:
+                return QualityCheckResult(
+                    "contract:" + contract_name,
+                    True,
+                    f"Contract validation passed: {len(result.contract.quality_rule_objects)} quality rules, schema validated, SLA validated",
+                )
+            else:
+                all_errors = result.all_errors
+                error_msg = "; ".join(all_errors[:3])  # Show first 3 errors
+                if len(all_errors) > 3:
+                    error_msg += f" ... and {len(all_errors) - 3} more errors"
+                return QualityCheckResult(
+                    "contract:" + contract_name,
+                    False,
+                    error_msg,
+                )
+
+        except Exception as exc:
+            return QualityCheckResult(
+                "contract:" + contract_name,
+                False,
+                f"Error validating contract: {exc}",
+            )
 
     def _run_single_check(
         self, check_name: str, con: duckdb.DuckDBPyConnection, dataset_name: str

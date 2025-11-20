@@ -8,9 +8,10 @@ from typing import Any, Dict, Iterable, Optional
 from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from rich.console import Console
 
-console = Console()
+from comboi.logging import get_logger
+
+logger = get_logger(__name__)
 
 _PLACEHOLDER_PATTERN = re.compile(r"\{\{\s*keyvault:([a-zA-Z0-9\-_]+)\s*\}\}")
 _ENV_PATTERN = re.compile(r"\{\{\s*env:([A-Z0-9_]+)\s*\}\}")
@@ -59,7 +60,7 @@ class SecretResolver:
             return self._get_secret(secret_name)
 
         if _PLACEHOLDER_PATTERN.search(value):
-            console.log(f"[magenta]Resolving secrets in configuration value[/]")
+            logger.debug("Resolving secrets in configuration value")
             return _PLACEHOLDER_PATTERN.sub(_lookup, value)
         return value
 

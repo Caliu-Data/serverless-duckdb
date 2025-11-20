@@ -29,7 +29,6 @@ class StageConfig:
 class MonitoringConfig:
     log_path: Path
     metrics_path: Path
-    azure_connection_string: Optional[str] = None
 
 
 @dataclass

@@ -4,12 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
-from rich.console import Console
-
 from comboi.bruin_runner import BruinRunner
 from comboi.io.adls import ADLSClient
+from comboi.logging import get_logger
 
-console = Console()
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -29,7 +28,7 @@ class GoldStage:
         gold_transforms = transformations.get("gold", [])
         
         if not gold_transforms:
-            console.log("[yellow]No bruin transformations configured for Gold stage[/]")
+            logger.warning("No bruin transformations configured for Gold stage")
             return outputs
 
         # Initialize bruin runner
@@ -47,7 +46,7 @@ class GoldStage:
         # Upload each transformation output to ADLS
         for trans_config, bruin_output in zip(gold_transforms, bruin_outputs):
             trans_name = trans_config["name"]
-            console.log(f"[bold blue]Uploading Gold transformation {trans_name}[/]")
+            logger.info("Uploading Gold transformation", transformation=trans_name)
 
             remote_path = stage_conf["remote_path_template"].format(
                 stage="gold",
@@ -57,6 +56,6 @@ class GoldStage:
             remote_uri = self.data_lake.upload(bruin_output, remote_path)
             outputs.append(remote_uri)
 
-        console.log(f"[bold green]Gold stage produced {len(outputs)} metrics[/]")
+        logger.info("Gold stage completed", metrics_produced=len(outputs))
         return outputs
 

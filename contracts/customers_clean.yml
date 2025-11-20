@@ -1,0 +1,58 @@
+version: "1.0.0"
+dataset: "customers_clean"
+stage: "silver"
+owner: "data-engineering-team"
+description: "Cleaned customers dataset with validated business rules"
+
+schema:
+  columns:
+    - name: customer_id
+      type: VARCHAR
+      nullable: false
+      description: "Unique customer identifier"
+      constraints:
+        - unique: true
+        - not_null: true
+    - name: customer_name
+      type: VARCHAR
+      nullable: false
+      description: "Customer name"
+      constraints:
+        - not_null: true
+    - name: email
+      type: VARCHAR
+      nullable: true
+      description: "Customer email address"
+      constraints:
+        - pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+
+quality_rules:
+  - name: "no_duplicate_customer_ids"
+    type: "uniqueness"
+    column: "customer_id"
+    severity: "error"
+  - name: "no_null_customer_ids"
+    type: "not_null"
+    column: "customer_id"
+    severity: "error"
+  - name: "valid_email_format"
+    type: "custom_sql"
+    query: "SELECT COUNT(*) FROM {dataset} WHERE email IS NOT NULL AND email NOT LIKE '%@%.%'"
+    expected: 0
+    severity: "warning"
+  - name: "row_count_threshold"
+    type: "volume"
+    min_rows: 1
+    severity: "error"
+
+sla:
+  freshness:
+    max_age_hours: 24
+    schedule: "daily"
+  completeness:
+    min_row_count: 1
+
+evolution:
+  backward_compatible: true
+  breaking_changes_allowed: false
+

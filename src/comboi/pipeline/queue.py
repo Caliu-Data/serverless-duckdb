@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from azure.storage.queue import QueueClient
-from rich.console import Console
 
-console = Console()
+from comboi.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -33,7 +34,7 @@ class AzureTaskQueue:
     ) -> "AzureTaskQueue":
         client = QueueClient.from_connection_string(connection_string, queue_name)
         client.create_queue()
-        console.log(f"[green]Using Azure Storage Queue '{queue_name}'[/]")
+        logger.info("Using Azure Storage Queue", queue_name=queue_name)
         return cls(queue_client=client, visibility_timeout=visibility_timeout)
 
     def purge(self) -> None:
@@ -42,7 +43,7 @@ class AzureTaskQueue:
     def enqueue(self, payload: Dict[str, Any]) -> None:
         message = json.dumps(payload)
         self.queue_client.send_message(message)
-        console.log(f"[cyan]Queued task: {payload}[/]")
+        logger.info("Queued task", payload=payload)
 
     def receive(self) -> Optional[QueueMessage]:
         messages = self.queue_client.receive_messages(

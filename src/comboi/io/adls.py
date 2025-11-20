@@ -6,9 +6,10 @@ from typing import Optional
 
 from adlfs import AzureBlobFileSystem
 from azure.identity import DefaultAzureCredential
-from rich.console import Console
 
-console = Console()
+from comboi.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -26,7 +27,11 @@ class ADLSClient:
 
     def upload(self, local_path: Path, remote_path: str) -> str:
         fs = self._fs()
-        console.log(f"[green]Uploading {local_path} to abfs://{self.file_system}/{remote_path}[/]")
+        logger.info(
+            "Uploading to ADLS",
+            local_path=str(local_path),
+            remote_path=f"abfs://{self.file_system}/{remote_path}",
+        )
         with local_path.open("rb") as data:
             fs.upload(
                 data,

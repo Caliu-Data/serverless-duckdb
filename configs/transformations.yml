@@ -10,7 +10,7 @@ silver:
         stage: bronze
         source_path: "sales_azure/orders.parquet"
     quality_checks:
-      - orders_quality
+      - contract:orders_clean  # Contract-based quality checks
     splink:
       link_type: "dedupe_only"
       unique_id_column_name: "order_id"
@@ -22,7 +22,7 @@ silver:
         stage: bronze
         source_path: "sales_azure/customers.parquet"
     quality_checks:
-      - customers_quality
+      - contract:customers_clean  # Contract-based quality checks
     splink:
       link_type: "dedupe_only"
       unique_id_column_name: "customer_id"

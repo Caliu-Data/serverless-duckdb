@@ -3,11 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable
 
-from rich.console import Console
-
+from comboi.logging import get_logger
 from comboi.pipeline.monitoring import Monitor
 
-console = Console()
+logger = get_logger(__name__)
 
 
 @dataclass

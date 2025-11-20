@@ -10,8 +10,9 @@ This repository contains `comboi`, a Python-based ELT system that implements a m
 - **Silver refinement**: Data cleansing with [Bruin](https://github.com/bruin-data/bruin) quality checks and Splink-based deduplication, materialized back to ADLS.
 - **Gold metrics**: Aggregations and business-ready metrics generated in DuckDB and delivered to ADLS.
 - **Operational primitives**: Driver, Azure Storage Queue-backed queuer, executor, and monitoring primitives co-ordinate the full pipeline, with Azure Functions timer/queue triggers for serverless execution.
-- **Secret management with Azure Key Vault**: Database passwords, storage account keys, queue connection strings, and Azure Monitor connection strings are fetched at runtime, keeping configurations free of hardcoded secrets.
-- **Infrastructure-as-code**: The complete Azure footprint (Function App, Key Vault, Application Insights, Storage accounts, Data Lake containers, queues) is provisioned via Terraform.
+- **Secret management with Azure Key Vault**: Database passwords, storage account keys, and queue connection strings are fetched at runtime, keeping configurations free of hardcoded secrets.
+- **Structured logging with structlog**: All logging uses structured JSON logs for better observability and debugging.
+- **Infrastructure-as-code**: The complete Azure footprint (Function App, Key Vault, Storage accounts, Data Lake containers, queues) is provisioned via Terraform.
 
 ## Repository Layout
 
@@ -73,7 +74,7 @@ The configuration is split into two files:
 **Configuration Steps:**
 
 1. Copy `configs/initial.yml` and `configs/transformations.yml` to your environment-specific configs.
-2. Ensure the `key_vault.vault_url` points to the Vault provisioned by Terraform (or another of your choosing). Terraform seeds `queue-connection-string`, `application-insights-connection`, and `adls-storage-key`. Add remaining credentials (e.g. `azure-sql-password`, `postgres-password`) before execution.
+2. Ensure the `key_vault.vault_url` points to the Vault provisioned by Terraform (or another of your choosing). Terraform seeds `queue-connection-string` and `adls-storage-key`. Add remaining credentials (e.g. `azure-sql-password`, `postgres-password`) before execution.
 3. Create [Bruin](https://github.com/bruin-data/bruin) transformation scripts in `transformations/` directory. Each script must define a `transform(con, inputs)` function that:
    - Receives a DuckDB connection (`con`) and input paths dictionary (`inputs`)
    - Returns a SQL query string (or pandas DataFrame) with the transformed data
@@ -97,10 +98,10 @@ terraform apply -var="prefix=<yourprefix>" -var="environment=<env>"
 
 The Terraform stack provisions:
 
-- Resource group, Application Insights, Log Analytics workspace.
+- Resource group.
 - Two storage accounts (one for Functions, one hierarchical namespace account for ADLS data + queue).
 - Bronze/Silver/Gold Data Lake containers and the `comboi-tasks` Azure Storage Queue.
-- Key Vault with secrets referencing the queue connection string and Application Insights connection string.
+- Key Vault with secrets referencing the queue connection string.
 - Linux Consumption Function App, system-assigned managed identity, and required app settings.
 
 After provisioning, publish the Azure Functions code (e.g. from the repo root):
@@ -118,26 +119,12 @@ func azure functionapp publish <function_app_name>
 
 Terraform outputs the Function App name (`function_app_name`) and supporting resource identifiers to simplify this step. Redeployments only require re-running `terraform apply` and re-publishing if code changes.
 
-### 3. Check the Scheduled Execution in Azure Monitor
+### 3. Check the Scheduled Execution
 
 - Verify the timer trigger (`driver` Function) runs according to `COMBOI_TIMER_SCHEDULE` by opening the Function App → Monitor blade.
-- Inspect logs and traces via Application Insights (Log Analytics workspace). Useful Kusto queries:
-
-```kusto
-traces
-| where cloud_RoleName == "<function_app_name>"
-| where timestamp > ago(1h)
-| order by timestamp desc
-```
-
-```kusto
-requests
-| where name contains "executor"
-| summarize count() by bin(timestamp, 15m)
-```
-
+- Inspect logs via the Function App logs or Application Insights. All logs are structured JSON using structlog.
 - Confirm queue-triggered executions complete for Bronze, Silver, and Gold stages (look for log statements `Stage <stage> completed`).
-- Set alerts (optional) on failed runs or missing executions using Application Insights availability rules.
+- Check log files at the configured `log_path` for detailed execution logs.
 
 Once scheduled execution is healthy, downstream systems can consume Gold-layer outputs directly from ADLS.
 
@@ -146,7 +133,7 @@ Once scheduled execution is healthy, downstream systems can consume Gold-layer o
 - **Driver** (`pipeline/driver.py`): Builds the stage task map, computes execution order, and supports both CLI and Function App invocations.
 - **Queuer** (`pipeline/queue.py`): Wraps Azure Storage Queue operations and JSON payload handling.
 - **Executor** (`pipeline/executor.py`): Runs stages sequentially with Rich progress feedback and streams status to the monitor.
-- **Monitor** (`pipeline/monitoring.py`): Appends human-readable logs, persists metrics locally, and exports telemetry to Azure Monitor / Application Insights.
+- **Monitor** (`pipeline/monitoring.py`): Manages structured logging with structlog, persists metrics locally, and writes logs to files.
 - **Azure Functions** (`azure_functions/driver`, `azure_functions/executor`): Timer-triggered scheduler enqueues medallion stages; queue-triggered executor runs each stage and chains the remainder.
 - **Terraform** (`terraform/`): IaC definitions provisioning Function App, Key Vault, Storage accounts, queue, Application Insights, and supporting infrastructure.
 
@@ -155,6 +142,7 @@ Once scheduled execution is healthy, downstream systems can consume Gold-layer o
 - **Add new sources**: Create additional connector classes and reference them in `configs/initial.yml`.
 - **Add transformations**: Create new [Bruin](https://github.com/bruin-data/bruin) transformation scripts in `transformations/` (e.g., `transformations/my_transform.py` with a `transform(con, inputs)` function), then add them to `configs/transformations.yml`.
 - **Add quality checks**: Create new [Bruin](https://github.com/bruin-data/bruin) quality check scripts in `transformations/quality/` (e.g., `transformations/quality/my_quality.py` with a `check(con, dataset_name)` function), then reference them in `configs/transformations.yml` under `quality_checks` for Silver transformations.
+- **Add data contracts**: Create data contract YAML files in `contracts/` directory (e.g., `contracts/my_dataset.yml`) defining schema, quality rules, and SLAs. Reference the contract in `configs/transformations.yml` using the `contract` field. See `contracts/README.md` for details.
 - **Add Splink deduplication**: Configure Splink settings in `configs/transformations.yml` for Silver transformations that need deduplication.
 - **Integrate with other orchestration**: Reuse the Azure Functions entrypoints or invoke `Driver.run_stage()` programmatically.
 
@@ -163,11 +151,12 @@ Once scheduled execution is healthy, downstream systems can consume Gold-layer o
 - **Missing DuckDB extensions**: Ensure DuckDB 0.10+ is installed. The pipeline auto-installs `odbc` and `postgres_scanner`, but network access may be required once per environment.
 - **[Bruin](https://github.com/bruin-data/bruin) transformation errors**: Verify transformation scripts are in `transformations/` directory, check that each script defines a `transform(con, inputs)` function, and ensure transformation names in `configs/transformations.yml` match the Python file names (without `.py` extension).
 - **[Bruin](https://github.com/bruin-data/bruin) quality check failures**: Verify quality check scripts are in `transformations/quality/` directory, check that each script defines a `check(con, dataset_name)` function that returns `(bool, str)`, and ensure quality check names in `configs/transformations.yml` match the Python file names (without `.py` extension). Review error messages in logs to identify which specific checks failed.
+- **Data contract validation failures**: Verify contract YAML files are in `contracts/` directory, check that the contract name in `configs/transformations.yml` matches the contract file name (without `.yml` extension), and review validation error messages in logs. Ensure `contracts_path` is configured in `configs/initial.yml` under the `silver` stage configuration.
 - **ADLS authentication issues**: Provide a valid credential in the configuration or export Azure identity context (e.g., `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`) before running the CLI.
 - **Key Vault access issues**: Ensure the identity running `comboi` has `get` and `list` secret permissions on the referenced Key Vault and that the secret names in the configuration exist.
 - **Azure Storage Queue problems**: Confirm the queue exists (it is created automatically if missing), the connection string is valid, and the identity has `send`, `receive`, and `delete` rights. Keep `host.json` queue batch size at one to prevent out-of-order execution.
 - **Azure Functions binding errors**: Validate `COMBOI_QUEUE_NAME`, `COMBOI_QUEUE_CONNECTION`, and `COMBOI_TIMER_SCHEDULE` app settings and ensure they align with the YAML configuration.
-- **Azure Monitor export issues**: Check that `AZURE_MONITOR_CONNECTION_STRING` or `monitoring.azure_connection_string` is present, the identity has `monitoring MetricsPublisher` permissions, and network rules allow ingestion.
+- **Logging issues**: Check that log files are being written to the configured `log_path` and that the directory is writable. All logs use structured JSON format via structlog.
 
 ## Roadmap Ideas
 

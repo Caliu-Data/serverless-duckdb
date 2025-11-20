@@ -5,14 +5,14 @@ from pathlib import Path
 from typing import Dict, List
 
 import duckdb
-from rich.console import Console
 from splink.duckdb.duckdb_linker import DuckDBLinker
 
 from comboi.bruin_runner import BruinRunner
 from comboi.bruin_quality import BruinQualityRunner
 from comboi.io.adls import ADLSClient
+from comboi.logging import get_logger
 
-console = Console()
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -25,6 +25,7 @@ class SilverStage:
         
         # Get bruin configuration
         transformations_path = Path(stage_conf.get("transformations_path", "transformations"))
+        contracts_path = Path(stage_conf.get("contracts_path", "contracts"))
         bronze_base_path = stage_conf.get("bronze_base_path", "data/bronze")
         
         # Get transformations config
@@ -32,7 +33,7 @@ class SilverStage:
         silver_transforms = transformations.get("silver", [])
         
         if not silver_transforms:
-            console.log("[yellow]No bruin transformations configured for Silver stage[/]")
+            logger.warning("No bruin transformations configured for Silver stage")
             return outputs
 
         # Initialize bruin runner
@@ -50,12 +51,13 @@ class SilverStage:
         # Process each transformation output
         for trans_config, bruin_output in zip(silver_transforms, bruin_outputs):
             trans_name = trans_config["name"]
-            console.log(f"[bold blue]Processing Silver transformation {trans_name}[/]")
+            logger.info("Processing Silver transformation", transformation=trans_name)
 
-            # Run bruin quality checks if configured
+            # Run bruin quality checks (now supports contracts via "contract:" prefix)
             if "quality_checks" in trans_config:
                 quality_runner = BruinQualityRunner(
-                    transformations_path=transformations_path
+                    transformations_path=transformations_path,
+                    contracts_path=contracts_path,  # Pass contracts path
                 )
                 quality_runner.run_quality_checks(
                     trans_config["quality_checks"],
@@ -74,7 +76,7 @@ class SilverStage:
             remote_uri = self.data_lake.upload(bruin_output, remote_path)
             outputs.append(remote_uri)
 
-        console.log(f"[bold green]Silver stage produced {len(outputs)} datasets[/]")
+        logger.info("Silver stage completed", datasets_produced=len(outputs))
         return outputs
 
     def _run_splink(self, trans_config: Dict, local_path: Path) -> None:
@@ -82,7 +84,7 @@ class SilverStage:
         if not splink_cfg:
             return
         trans_name = trans_config["name"]
-        console.log(f"[cyan]Running Splink deduplication for {trans_name}[/]")
+        logger.info("Running Splink deduplication", transformation=trans_name)
         linker = DuckDBLinker(
             input_table_or_tables=[
                 {

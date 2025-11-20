@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import duckdb
-from rich.console import Console
 
-console = Console()
+from comboi.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class BruinRunner:
@@ -22,7 +23,7 @@ class BruinRunner:
         output_path: Path,
     ) -> Path:
         """Run a bruin transformation script and return the output parquet path."""
-        console.log(f"[bold blue]Running bruin transformation: {transformation_name}[/]")
+        logger.info("Running bruin transformation", transformation=transformation_name)
 
         # Load the transformation module
         transformation_file = self.transformations_path / f"{transformation_name}.py"
@@ -77,7 +78,7 @@ class BruinRunner:
                     f"Transform function must return a SQL query string or pandas DataFrame, got {type(result)}"
                 )
 
-            console.log(f"[green]Transformation {transformation_name} completed[/]")
+            logger.info("Transformation completed", transformation=transformation_name)
             return output_path
 
         finally:
@@ -95,7 +96,7 @@ class BruinRunner:
 
         for trans_config in transformations:
             trans_name = trans_config["name"]
-            console.log(f"[bold blue]Processing {stage} transformation: {trans_name}[/]")
+            logger.info("Processing transformation", stage=stage, transformation=trans_name)
 
             # Resolve input URIs
             inputs: Dict[str, str] = {}

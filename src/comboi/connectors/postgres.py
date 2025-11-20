@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import duckdb
-from rich.console import Console
 
 from comboi.checkpoint import CheckpointStore
+from comboi.logging import get_logger
 
-console = Console()
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -36,7 +36,7 @@ class PostgresConnector:
                 WHERE {incremental_column} > '{last_value}'
                 """
 
-        console.log(f"[bold blue]Executing Postgres query for {table_cfg['name']}[/]")
+        logger.info("Executing Postgres query", table=table_cfg["name"])
         con = duckdb.connect()
         try:
             con.execute("INSTALL postgres_scanner;")
@@ -54,6 +54,6 @@ class PostgresConnector:
         finally:
             con.close()
 
-        console.log(f"[bold green]Exported to {destination}[/]")
+        logger.info("Exported to destination", destination=str(destination), table=table_cfg["name"])
         return destination
 
