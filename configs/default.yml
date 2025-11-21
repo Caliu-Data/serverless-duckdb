@@ -50,9 +50,6 @@ stages:
         bronze_uri: "abfs://bronze/bronze/sales_azure/orders.parquet"
         transformations:
           - "CREATE OR REPLACE VIEW bronze_clean AS SELECT * FROM bronze WHERE status IS NOT NULL"
-        soda:
-          config: "soda/configuration.yml"
-          checks: "soda/checks/orders.yml"
         splink:
           settings:
             link_type: "dedupe_only"

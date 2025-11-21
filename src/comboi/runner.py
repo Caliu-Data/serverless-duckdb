@@ -42,10 +42,6 @@ def _normalize_paths(config, base: Path) -> None:
     config.monitoring.log_path = _resolve_relative(Path(config.monitoring.log_path), base)
     config.monitoring.metrics_path = _resolve_relative(Path(config.monitoring.metrics_path), base)
 
-    if config.monitoring.azure_connection_string:
-        # Allow Key Vault placeholders; no path resolution required
-        pass
-
     bronze = config.stages.bronze
     bronze["local_path"] = str(_resolve_relative(Path(bronze["local_path"]), base))
     if "checkpoint_path" in bronze:

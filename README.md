@@ -2,170 +2,311 @@
 
 [![Repository](https://img.shields.io/badge/GitHub-Caliu--Data%2Fcomboi-blue)](https://github.com/Caliu-Data/comboi)
 
-This repository contains `comboi`, a Python-based ELT system that implements a medallion architecture on top of DuckDB, Azure Data Lake Storage using Azure Functions. It is designed to be configuration-driven and easy to operate.
+**Comboi** is a Python-based ELT (Extract, Load, Transform) system that implements a medallion architecture (Bronze → Silver → Gold) on top of DuckDB and Azure Data Lake Storage. It runs serverlessly using Azure Functions and is designed to be configuration-driven and easy to operate.
 
-## Key Features
+## 🚀 Key Features
 
-- **Bronze landing**: Incremental extracts from Azure SQL Database and PostgreSQL using DuckDB, persisted as Parquet in Azure Data Lake Storage (ADLS) with checkpointing to avoid full reloads.
-- **Silver refinement**: Data cleansing with [Bruin](https://github.com/bruin-data/bruin) quality checks and Splink-based deduplication, materialized back to ADLS.
-- **Gold metrics**: Aggregations and business-ready metrics generated in DuckDB and delivered to ADLS.
-- **Operational primitives**: Driver, Azure Storage Queue-backed queuer, executor, and monitoring primitives co-ordinate the full pipeline, with Azure Functions timer/queue triggers for serverless execution.
-- **Secret management with Azure Key Vault**: Database passwords, storage account keys, and queue connection strings are fetched at runtime, keeping configurations free of hardcoded secrets.
-- **Structured logging with structlog**: All logging uses structured JSON logs for better observability and debugging.
-- **Infrastructure-as-code**: The complete Azure footprint (Function App, Key Vault, Storage accounts, Data Lake containers, queues) is provisioned via Terraform.
+- **Bronze Landing**: Incremental extracts from Azure SQL Database and PostgreSQL using DuckDB, persisted as Parquet in Azure Data Lake Storage (ADLS) with checkpointing to avoid full reloads
+- **Silver Refinement**: Data cleansing using **Data Contracts** with [Bruin](https://github.com/bruin-data/bruin) quality checks and Splink-based deduplication, materialized back to ADLS
+- **Gold Metrics**: Aggregations and business-ready metrics generated in DuckDB and delivered to ADLS
+- **Data Contracts**: Declarative schema, quality rules, and SLA validation through YAML contracts
+- **Serverless Execution**: Azure Functions with timer/queue triggers for automated pipeline orchestration
+- **Secret Management**: Azure Key Vault integration for secure credential management
+- **Structured Logging**: JSON logs using structlog for better observability
+- **Infrastructure-as-Code**: Complete Azure infrastructure provisioned via Terraform
 
-## Repository Layout
+## 📁 Repository Structure
 
 ```
 .
-├── configs/               # Pipeline configuration files
-├── transformations/       # [Bruin](https://github.com/bruin-data/bruin) transformation and quality check scripts
-├── src/comboi/         # Application source code (shared by CLI & Azure Functions)
-│   ├── connectors/        # Source system connectors (Azure SQL, PostgreSQL)
-│   ├── io/                # ADLS client helpers
-│   ├── pipeline/          # Driver, queue, monitoring, and stage orchestration
-│   └── cli.py             # Typer CLI entry point (optional local runs)
-├── azure_functions/       # Timer and queue triggered Azure Functions entrypoints
-└── terraform/             # Terraform IaC for all Azure resources
+├── configs/                    # Pipeline configuration files
+│   ├── initial.yml            # Infrastructure and source configuration
+│   ├── transformations.yml     # Transformation and quality check definitions
+│   └── default.yml            # Example configuration
+├── contracts/                  # Data contract definitions (YAML)
+│   ├── orders_clean.yml       # Example contract
+│   └── customers_clean.yml     # Example contract
+├── transformations/            # Bruin transformation scripts
+│   ├── quality/               # Quality check scripts (legacy, use contracts instead)
+│   └── *.py                   # Transformation scripts
+├── src/comboi/                # Main application code
+│   ├── connectors/            # Source connectors (Azure SQL, PostgreSQL)
+│   ├── contracts/             # Data contract validation
+│   ├── io/                    # ADLS client
+│   ├── pipeline/              # Pipeline orchestration
+│   ├── cli.py                 # CLI entry point
+│   └── runner.py              # Driver factory
+├── azure_functions/           # Azure Functions entrypoints
+│   ├── driver/                # Timer-triggered scheduler
+│   ├── executor/              # Queue-triggered executor
+│   └── shared_packages/       # Vendored comboi package
+├── terraform/                 # Infrastructure as Code
+└── tools/                     # Utility scripts
+    └── embed_comboi.py        # Copy comboi to Azure Functions
 ```
 
-## Medallion Architecture
+## 🏗️ Architecture
 
-### Bronze: Landing Zone
+### Medallion Data Architecture
 
-1. DuckDB attaches to Azure SQL Database or PostgreSQL via their respective extensions (`odbc` and `postgres_scanner`).
-2. Parameterized SQL queries defined in the configuration extract only new or changed records by leveraging checkpoint values.
-3. Extracted data is written as Parquet to a local staging path and then uploaded to ADLS using `adlfs`.
+**Bronze (Landing Zone)**
+- Extracts raw data from source systems (Azure SQL, PostgreSQL)
+- Uses DuckDB extensions (`odbc`, `postgres_scanner`) for direct connection
+- Incremental loads with checkpointing to avoid full reloads
+- Persists as Parquet files in ADLS
 
-### Silver: Curation Zone
+**Silver (Curation Zone)**
+- Reads Bronze Parquet files via DuckDB
+- Applies [Bruin](https://github.com/bruin-data/bruin) transformations (Python functions)
+- Validates data using **Data Contracts** (schema, quality rules, SLAs)
+- Deduplicates using Splink
+- Materializes cleaned data back to ADLS
 
-1. Bronze Parquet assets are read via DuckDB.
-2. [Bruin](https://github.com/bruin-data/bruin) transformation scripts (Python functions) apply SQL transformations to materialize curated views.
-3. [Bruin](https://github.com/bruin-data/bruin) quality check scripts execute configured data quality validations. Failures stop the pipeline to avoid propagating poor-quality data.
-4. Splink deduplicates the curated data, rewriting the clean dataset before upload to the Silver ADLS container.
+**Gold (Serving Zone)**
+- Composes Silver datasets into analytical models
+- Generates business metrics and aggregations
+- Exports as Parquet to ADLS for BI and downstream consumption
 
-### Gold: Serving Zone
-
-1. DuckDB composes silver datasets into analytical models using SQL defined in the configuration.
-2. Aggregated metrics are exported as Parquet to the Gold ADLS container for BI and downstream consumption.
-
-## Getting Started
+## 🚦 Quick Start
 
 ### Prerequisites
 
-- Python 3.9+ (local development, packaging, and testing).
-- Terraform >= 1.5.
-- Azure CLI (logged in with an account that can create the resources below).
-- Azure Functions Core Tools (optional but recommended for publishing and local testing).
-- Access to Azure SQL and PostgreSQL sources, plus credentials that can be stored in Key Vault.
+- **Python 3.9+** (for local development)
+- **Terraform >= 1.5** (for infrastructure deployment)
+- **Azure CLI** (logged in with appropriate permissions)
+- **Azure Functions Core Tools** (optional, for local testing)
+- Access to source databases and Azure resources
 
-## Deployment Workflow
+### Installation
 
-### 1. Configure
+```bash
+# Clone the repository
+git clone <repository-url>
+cd serverless-duckdb
 
-The configuration is split into two files:
+# Install dependencies
+pip install -e .
+```
 
-- **`configs/initial.yml`**: Infrastructure settings (Key Vault, queue, sources, stage paths, monitoring). Copy and adjust:
-  - Connection queries for Azure SQL and PostgreSQL sources.
-  - Storage account names / container templates if you diverge from defaults.
-  - Transformations path (default: `transformations`).
-- **`configs/transformations.yml`**: [Bruin](https://github.com/bruin-data/bruin) transformation definitions for Silver and Gold stages. Lists which Python transformation scripts to run for each stage.
+### Configuration
 
-**Configuration Steps:**
+1. **Copy configuration templates:**
+   ```bash
+   cp configs/initial.yml configs/my-env.yml
+   cp configs/transformations.yml configs/my-env-transformations.yml
+   ```
 
-1. Copy `configs/initial.yml` and `configs/transformations.yml` to your environment-specific configs.
-2. Ensure the `key_vault.vault_url` points to the Vault provisioned by Terraform (or another of your choosing). Terraform seeds `queue-connection-string` and `adls-storage-key`. Add remaining credentials (e.g. `azure-sql-password`, `postgres-password`) before execution.
-3. Create [Bruin](https://github.com/bruin-data/bruin) transformation scripts in `transformations/` directory. Each script must define a `transform(con, inputs)` function that:
-   - Receives a DuckDB connection (`con`) and input paths dictionary (`inputs`)
-   - Returns a SQL query string (or pandas DataFrame) with the transformed data
-   - Uses input aliases (e.g., `bronze_orders`, `orders_clean`) as DuckDB views
-4. Create [Bruin](https://github.com/bruin-data/bruin) quality check scripts in `transformations/quality/` directory. Each script must define a `check(con, dataset_name)` function that:
-   - Receives a DuckDB connection (`con`) with the dataset loaded as a view
-   - Returns a tuple `(passed: bool, message: str)` indicating if checks passed
-   - Performs data quality validations using SQL queries
-5. Update `configs/transformations.yml` to list the [Bruin](https://github.com/bruin-data/bruin) transformations to run for each stage, along with quality check names and Splink settings for Silver transformations.
-6. Any time you modify code inside `src/comboi`, rerun `python tools/embed_comboi.py` so that the vendored copy under `azure_functions/shared_packages/` stays in sync for Function deployments.
-7. Optionally tailor `terraform/variables.tf` defaults (timer schedule, start stage, config path, region).
-8. (Optional) Set up a local Python environment `pip install -e .` if you need to lint or unit-test custom logic.
+2. **Configure sources** in `configs/my-env.yml`:
+   - Update Key Vault URL
+   - Configure Azure SQL and PostgreSQL connections
+   - Set up source queries and incremental columns
 
-### 2. Deploy with Terraform
+3. **Configure transformations** in `configs/my-env-transformations.yml`:
+   - Define Silver transformations
+   - Reference data contracts using `contract:contract_name` in `quality_checks`
+   - Configure Gold aggregations
+
+4. **Create data contracts** in `contracts/`:
+   - Define schema, quality rules, and SLAs
+   - See `contracts/README.md` for contract format
+
+5. **Create transformation scripts** in `transformations/`:
+   - Each script must define a `transform(con, inputs)` function
+   - Returns SQL query string or pandas DataFrame
+
+### Local Testing
+
+```bash
+# Run the pipeline locally
+comboi run all --config configs/my-env.yml
+
+# Run a specific stage
+comboi run silver --config configs/my-env.yml
+
+# Plan execution without running
+comboi plan --config configs/my-env.yml
+```
+
+## 🚀 Deployment
+
+### 1. Deploy Infrastructure with Terraform
 
 ```bash
 cd terraform
 terraform init
-terraform apply -var="prefix=<yourprefix>" -var="environment=<env>"
+terraform apply -var="prefix=myproject" -var="environment=prod"
 ```
 
-The Terraform stack provisions:
+This provisions:
+- Resource group
+- Storage accounts (Functions + ADLS)
+- Bronze/Silver/Gold Data Lake containers
+- Azure Storage Queue (`comboi-tasks`)
+- Key Vault with queue connection string secret
+- Linux Consumption Function App with managed identity
 
-- Resource group.
-- Two storage accounts (one for Functions, one hierarchical namespace account for ADLS data + queue).
-- Bronze/Silver/Gold Data Lake containers and the `comboi-tasks` Azure Storage Queue.
-- Key Vault with secrets referencing the queue connection string.
-- Linux Consumption Function App, system-assigned managed identity, and required app settings.
+### 2. Configure Secrets in Key Vault
 
-After provisioning, publish the Azure Functions code (e.g. from the repo root):
+Add the following secrets to Key Vault:
+- `queue-connection-string` (auto-created by Terraform)
+- `adls-storage-key` (auto-created by Terraform)
+- `azure-sql-password` (your database password)
+- `postgres-password` (your database password)
+
+### 3. Deploy Azure Functions
 
 ```bash
-python tools/embed_comboi.py  # copies src/comboi into azure_functions/shared_packages
+# Embed comboi package into Azure Functions
+python tools/embed_comboi.py
+
+# Copy transformations and contracts to Azure Functions
+cp -r transformations azure_functions/
+cp -r contracts azure_functions/
+cp -r configs azure_functions/
+
+# Deploy to Azure
 cd azure_functions
-# Ensure transformations directory is accessible (copy transformations/ directory or reference from parent)
 func azure functionapp publish <function_app_name>
 ```
 
-**Note**: The [Bruin](https://github.com/bruin-data/bruin) transformations directory (`transformations/`) must be accessible to the Azure Functions at runtime. Either:
-- Copy the `transformations/` directory into `azure_functions/` before publishing, or
-- Ensure the Function App can access the transformations via a mounted file share or by including it in the deployment package.
+**Note**: The `transformations/` and `contracts/` directories must be accessible to Azure Functions at runtime. Include them in the deployment package or use a mounted file share.
 
-Terraform outputs the Function App name (`function_app_name`) and supporting resource identifiers to simplify this step. Redeployments only require re-running `terraform apply` and re-publishing if code changes.
+### 4. Verify Execution
 
-### 3. Check the Scheduled Execution
+- Check Function App → Monitor for timer trigger execution
+- Review logs (structured JSON via structlog)
+- Verify queue-triggered executions complete for all stages
+- Check log files at configured `log_path` for detailed execution logs
 
-- Verify the timer trigger (`driver` Function) runs according to `COMBOI_TIMER_SCHEDULE` by opening the Function App → Monitor blade.
-- Inspect logs via the Function App logs or Application Insights. All logs are structured JSON using structlog.
-- Confirm queue-triggered executions complete for Bronze, Silver, and Gold stages (look for log statements `Stage <stage> completed`).
-- Check log files at the configured `log_path` for detailed execution logs.
+## 📝 Data Contracts
 
-Once scheduled execution is healthy, downstream systems can consume Gold-layer outputs directly from ADLS.
+Data contracts provide declarative validation for your datasets. See `contracts/README.md` for complete documentation.
 
-## Operational Components
+**Quick Example:**
+```yaml
+# contracts/orders_clean.yml
+version: "1.0.0"
+dataset: "orders_clean"
+stage: "silver"
 
-- **Driver** (`pipeline/driver.py`): Builds the stage task map, computes execution order, and supports both CLI and Function App invocations.
-- **Queuer** (`pipeline/queue.py`): Wraps Azure Storage Queue operations and JSON payload handling.
-- **Executor** (`pipeline/executor.py`): Runs stages sequentially with Rich progress feedback and streams status to the monitor.
-- **Monitor** (`pipeline/monitoring.py`): Manages structured logging with structlog, persists metrics locally, and writes logs to files.
-- **Azure Functions** (`azure_functions/driver`, `azure_functions/executor`): Timer-triggered scheduler enqueues medallion stages; queue-triggered executor runs each stage and chains the remainder.
-- **Terraform** (`terraform/`): IaC definitions provisioning Function App, Key Vault, Storage accounts, queue, Application Insights, and supporting infrastructure.
+schema:
+  columns:
+    - name: order_id
+      type: VARCHAR
+      nullable: false
+      constraints:
+        - unique: true
+        - not_null: true
 
-## Extending the System
+quality_rules:
+  - name: "no_duplicates"
+    type: "uniqueness"
+    column: "order_id"
+    severity: "error"
 
-- **Add new sources**: Create additional connector classes and reference them in `configs/initial.yml`.
-- **Add transformations**: Create new [Bruin](https://github.com/bruin-data/bruin) transformation scripts in `transformations/` (e.g., `transformations/my_transform.py` with a `transform(con, inputs)` function), then add them to `configs/transformations.yml`.
-- **Add quality checks**: Create new [Bruin](https://github.com/bruin-data/bruin) quality check scripts in `transformations/quality/` (e.g., `transformations/quality/my_quality.py` with a `check(con, dataset_name)` function), then reference them in `configs/transformations.yml` under `quality_checks` for Silver transformations.
-- **Add data contracts**: Create data contract YAML files in `contracts/` directory (e.g., `contracts/my_dataset.yml`) defining schema, quality rules, and SLAs. Reference the contract in `configs/transformations.yml` using the `contract` field. See `contracts/README.md` for details.
-- **Add Splink deduplication**: Configure Splink settings in `configs/transformations.yml` for Silver transformations that need deduplication.
-- **Integrate with other orchestration**: Reuse the Azure Functions entrypoints or invoke `Driver.run_stage()` programmatically.
+sla:
+  freshness:
+    max_age_hours: 24
+  completeness:
+    min_row_count: 1
+```
 
-## Troubleshooting
+Reference contracts in `configs/transformations.yml`:
+```yaml
+silver:
+  - name: orders_clean
+    quality_checks:
+      - contract:orders_clean  # References contracts/orders_clean.yml
+```
 
-- **Missing DuckDB extensions**: Ensure DuckDB 0.10+ is installed. The pipeline auto-installs `odbc` and `postgres_scanner`, but network access may be required once per environment.
-- **[Bruin](https://github.com/bruin-data/bruin) transformation errors**: Verify transformation scripts are in `transformations/` directory, check that each script defines a `transform(con, inputs)` function, and ensure transformation names in `configs/transformations.yml` match the Python file names (without `.py` extension).
-- **[Bruin](https://github.com/bruin-data/bruin) quality check failures**: Verify quality check scripts are in `transformations/quality/` directory, check that each script defines a `check(con, dataset_name)` function that returns `(bool, str)`, and ensure quality check names in `configs/transformations.yml` match the Python file names (without `.py` extension). Review error messages in logs to identify which specific checks failed.
-- **Data contract validation failures**: Verify contract YAML files are in `contracts/` directory, check that the contract name in `configs/transformations.yml` matches the contract file name (without `.yml` extension), and review validation error messages in logs. Ensure `contracts_path` is configured in `configs/initial.yml` under the `silver` stage configuration.
-- **ADLS authentication issues**: Provide a valid credential in the configuration or export Azure identity context (e.g., `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`) before running the CLI.
-- **Key Vault access issues**: Ensure the identity running `comboi` has `get` and `list` secret permissions on the referenced Key Vault and that the secret names in the configuration exist.
-- **Azure Storage Queue problems**: Confirm the queue exists (it is created automatically if missing), the connection string is valid, and the identity has `send`, `receive`, and `delete` rights. Keep `host.json` queue batch size at one to prevent out-of-order execution.
-- **Azure Functions binding errors**: Validate `COMBOI_QUEUE_NAME`, `COMBOI_QUEUE_CONNECTION`, and `COMBOI_TIMER_SCHEDULE` app settings and ensure they align with the YAML configuration.
-- **Logging issues**: Check that log files are being written to the configured `log_path` and that the directory is writable. All logs use structured JSON format via structlog.
+## 🔧 Operational Components
 
-## Roadmap Ideas
+- **Driver** (`pipeline/driver.py`): Orchestrates pipeline execution, builds task map, computes execution order
+- **Executor** (`pipeline/executor.py`): Runs stages sequentially with progress tracking
+- **Monitor** (`pipeline/monitoring.py`): Structured logging with structlog, metrics persistence
+- **Queue** (`pipeline/queue.py`): Azure Storage Queue operations for stage chaining
+- **Azure Functions**: Timer-triggered scheduler and queue-triggered executor
 
-- Multicloud
-- Industry Specific Building Blocks
-- Streaming broker
-- CDC
-- Delta and Apache Iceberg Tables
+## 🛠️ Extending the System
+
+### Add New Sources
+
+1. Create a connector class in `src/comboi/connectors/`
+2. Reference it in `configs/initial.yml` under `sources`
+
+### Add Transformations
+
+1. Create a Python script in `transformations/` with a `transform(con, inputs)` function
+2. Add to `configs/transformations.yml` under the appropriate stage
+
+### Add Data Contracts
+
+1. Create a YAML file in `contracts/` defining schema, quality rules, and SLAs
+2. Reference using `contract:contract_name` in `quality_checks` within `configs/transformations.yml`
+3. See `contracts/README.md` for detailed contract format
+
+### Add Quality Checks
+
+**Recommended**: Use data contracts (see above)
+
+**Legacy**: Create Python scripts in `transformations/quality/` with a `check(con, dataset_name)` function that returns `(bool, str)`
+
+## 🐛 Troubleshooting
+
+### Missing DuckDB Extensions
+- Ensure DuckDB 0.10+ is installed
+- Extensions (`odbc`, `postgres_scanner`) auto-install but require network access
+
+### Transformation Errors
+- Verify scripts are in `transformations/` directory
+- Check that `transform(con, inputs)` function exists
+- Ensure transformation names in config match Python file names (without `.py`)
+
+### Data Contract Validation Failures
+- Verify contract YAML files exist in `contracts/` directory
+- Check contract name matches file name (without `.yml`)
+- Ensure `contracts_path` is configured in `configs/initial.yml`
+- Review validation error messages in logs
+
+### Quality Check Failures
+- For contracts: Check contract YAML syntax and validation rules
+- For legacy checks: Verify scripts in `transformations/quality/` with `check(con, dataset_name)` function
+- Review error messages in structured logs
+
+### ADLS Authentication Issues
+- Provide valid credential in configuration
+- Or export Azure identity context: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`
+
+### Key Vault Access Issues
+- Ensure identity has `get` and `list` secret permissions
+- Verify secret names exist in Key Vault
+- Check Key Vault URL in configuration
+
+### Azure Functions Issues
+- Validate app settings: `COMBOI_QUEUE_NAME`, `COMBOI_QUEUE_CONNECTION`, `COMBOI_TIMER_SCHEDULE`
+- Ensure `transformations/` and `contracts/` directories are included in deployment
+- Check Function App logs for detailed error messages
+
+### Logging Issues
+- Verify `log_path` directory is writable
+- Check that logs are being written (structured JSON format)
+- Review Function App logs in Azure Portal
+
+## 📚 Additional Resources
+
+- **Data Contracts**: See `contracts/README.md` for contract documentation
+- **Bruin**: [https://github.com/bruin-data/bruin](https://github.com/bruin-data/bruin)
+- **DuckDB**: [https://duckdb.org/](https://duckdb.org/)
+- **Splink**: [https://github.com/moj-analytical-services/splink](https://github.com/moj-analytical-services/splink)
+
+## 🗺️ Roadmap
+
+- Multicloud support
+- Industry-specific building blocks
+- Streaming broker integration
+- Change Data Capture (CDC)
+- Delta Lake and Apache Iceberg support
+
 ---
 
-Happy querying with DuckDB! Contributions and customizations are welcome.
-Made in Berlin
+**Made in Berlin** | Contributions welcome!

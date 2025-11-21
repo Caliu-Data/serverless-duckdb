@@ -95,7 +95,6 @@ resource "azurerm_linux_function_app" "main" {
     COMBOI_QUEUE_CONNECTION        = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.queue_connection.value_uri})"
     COMBOI_CONFIG                  = var.config_path
     COMBOI_START_STAGE             = var.start_stage
-    AZURE_MONITOR_CONNECTION_STRING   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.appinsights_connection.value_uri})"
     DATA_LAKE_ACCOUNT_NAME            = azurerm_storage_account.datalake.name
     DATA_LAKE_URL                     = "https://${azurerm_storage_account.datalake.name}.dfs.core.windows.net"
   }
@@ -141,11 +140,6 @@ resource "azurerm_key_vault_secret" "queue_connection" {
   key_vault_id = azurerm_key_vault.main.id
 }
 
-resource "azurerm_key_vault_secret" "appinsights_connection" {
-  name         = "application-insights-connection"
-  value        = azurerm_application_insights.main.connection_string
-  key_vault_id = azurerm_key_vault.main.id
-}
 
 resource "azurerm_key_vault_secret" "adls_storage_key" {
   name         = "adls-storage-key"

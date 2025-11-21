@@ -6,17 +6,17 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import azure.functions as func
-from rich.console import Console
 
 _FUNCTION_ROOT = Path(__file__).resolve().parents[1]
 _SHARED = _FUNCTION_ROOT / "shared_packages"
 if _SHARED.exists():
     sys.path.insert(0, str(_SHARED))
 
+from comboi.logging import get_logger
 from comboi.pipeline.queue import AzureTaskQueue
 from comboi.runner import create_driver
 
-console = Console()
+logger = get_logger(__name__)
 
 
 def main(msg: func.QueueMessage) -> None:
@@ -26,9 +26,9 @@ def main(msg: func.QueueMessage) -> None:
     remaining: List[str] = payload.get("remaining", [])
 
     driver = create_driver(config_path)
-    console.log(f"[blue]Executing stage {stage}[/]")
+    logger.info("Executing stage", stage=stage)
     result = driver.run_stage(stage)
-    console.log(f"[green]Stage {stage} completed[/] -> {result}")
+    logger.info("Stage completed", stage=stage, result=result)
 
     if remaining:
         _enqueue_next(driver, config_path, remaining)
@@ -55,5 +55,5 @@ def _enqueue_next(driver, config_path: Path, remaining: List[str]) -> None:
         "remaining": remaining[1:],
     }
     queue.enqueue(payload)
-    console.log(f"[magenta]Queued next stage {next_stage}[/]")
+    logger.info("Queued next stage", next_stage=next_stage, remaining_count=len(remaining[1:]))
 

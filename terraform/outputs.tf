@@ -18,8 +18,4 @@ output "key_vault_name" {
   value = azurerm_key_vault.main.name
 }
 
-output "application_insights_connection" {
-  value     = azurerm_application_insights.main.connection_string
-  sensitive = true
-}
 

@@ -5,17 +5,17 @@ import sys
 from pathlib import Path
 
 import azure.functions as func
-from rich.console import Console
 
 _FUNCTION_ROOT = Path(__file__).resolve().parents[1]
 _SHARED = _FUNCTION_ROOT / "shared_packages"
 if _SHARED.exists():
     sys.path.insert(0, str(_SHARED))
 
+from comboi.logging import get_logger
 from comboi.pipeline.queue import AzureTaskQueue
 from comboi.runner import create_driver
 
-console = Console()
+logger = get_logger(__name__)
 
 
 def main(mytimer: func.TimerRequest) -> None:
@@ -25,7 +25,7 @@ def main(mytimer: func.TimerRequest) -> None:
     driver = create_driver(config_path)
     stages = driver.execution_order(selected_stage)
     if not stages:
-        console.log("[yellow]No stages to enqueue[/]")
+        logger.warning("No stages to enqueue", selected_stage=selected_stage)
         return
 
     queue_conf = driver.config.queue
@@ -41,5 +41,5 @@ def main(mytimer: func.TimerRequest) -> None:
         "remaining": stages[1:],
     }
     queue.enqueue(payload)
-    console.log(f"[green]Scheduled pipeline run starting with stage {stages[0]}[/]")
+    logger.info("Scheduled pipeline run", starting_stage=stages[0], remaining_stages=stages[1:])
 

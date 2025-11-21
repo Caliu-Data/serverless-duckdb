@@ -4,13 +4,12 @@ This module provisions the Azure footprint required for the `comboi` medallion E
 
 ### Resources
 
-- Resource group, Log Analytics workspace, Application Insights
+- Resource group, Log Analytics workspace, Application Insights (for Azure Functions built-in monitoring)
 - Storage account for Azure Functions (non-HNS)
 - Storage account with hierarchical namespace for ADLS bronze/silver/gold layers
 - Azure Storage Queue (`comboi-tasks`)
 - Key Vault with secrets:
   - `queue-connection-string` (Function storage account connection string)
-  - `application-insights-connection`
   - `adls-storage-key`
 - Linux Consumption Function App with system-assigned managed identity
 - Timer-trigger (driver) and queue-trigger (executor) app settings

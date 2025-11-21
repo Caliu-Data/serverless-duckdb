@@ -1,4 +1,0 @@
-checks for orders_clean:
-  - row_count > 0
-  - duplicate_count(customer_id) = 0
-

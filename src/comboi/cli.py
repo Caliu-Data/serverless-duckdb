@@ -4,10 +4,12 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from rich import print
 
+from comboi.logging import get_logger
 from comboi.pipeline.driver import Driver
 from comboi.runner import create_driver
+
+logger = get_logger(__name__)
 
 app = typer.Typer(help="Serverless DuckDB Medallion ETL executor")
 
@@ -28,9 +30,9 @@ def run_pipeline(
 ) -> None:
     driver = _load_driver(config)
     results = driver.run(selected=stage)
-    print("[bold green]Pipeline completed successfully[/]")
+    logger.info("Pipeline completed successfully", stage=stage or "all", results=results)
     for name, output in results.items():
-        print(f"[white]{name}: {output}[/]")
+        logger.info("Stage output", stage=name, output=output)
 
 
 @app.command("plan")
@@ -40,7 +42,5 @@ def plan_pipeline(
 ) -> None:
     driver = _load_driver(config)
     planned = driver.plan(stage)
-    print("[bold]Planned tasks:[/]")
-    for item in planned:
-        print(f"- {item}")
+    logger.info("Planned tasks", stage=stage or "all", tasks=planned)
 
